@@ -1,653 +1,167 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OR-Track: Panel de Control</title>
-    
-    <!-- Librerías Externas -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .sanitary-gradient { background: linear-gradient(180deg, #0f766e 0%, #115e59 100%); }
-        
-        /* Estilos Tabla y Scroll */
-        .table-row-hover:hover td { background-color: #f0fdfa; }
-        th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 800; }
-        td { font-size: 0.875rem; color: #334155; }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none;
-            width: 16px; height: 16px; background: #0d9488;
-            cursor: pointer; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuriQuirófano | Seguimiento de Alumnos</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Configuración Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            medical: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a'
+            }
+          }
         }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    </style>
+      }
+    }
+  </script>
 
-    <!-- Firebase SDKs (Necesarios si activas el modo nube) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        // ======================================================
-        // ⚙️ ÁREA DE CONFIGURACIÓN (Opcional para GitHub)
-        // ======================================================
-        // Si dejas esto como 'null', la app guardará los datos en tu PC (LocalStorage).
-        // Si pegas tu config de Firebase aquí, se guardarán en la nube.
-        
-        const FIREBASE_CONFIG = null;
-
-        /* EJEMPLO DE CÓMO PEGARLO:
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSy...",
-            authDomain: "tu-app.firebaseapp.com",
-            projectId: "tu-app",
-            storageBucket: "tu-app.appspot.com",
-            messagingSenderId: "123...",
-            appId: "1:123..."
-        };
-        */
-        // ======================================================
-
-        // Estado Global
-        let students = [];
-        let currentRole = 'docente';
-        let activeChart = null;
-        let db, auth;
-        let isCloudMode = false;
-        
-        // Criterios de Evaluación (Basados en tus documentos)
-        const criteria = [
-            { id: 'entorno', label: 'Entorno y Almacenamiento', short: 'Entorno' },
-            { id: 'equipamiento', label: 'Tecnología y Equipamiento', short: 'Equipos' },
-            { id: 'seguridad', label: 'Seguridad y Procedimientos', short: 'Seguridad' },
-            { id: 'asepsia', label: 'Técnicas Estériles', short: 'Asepsia' },
-            { id: 'instrumental', label: 'Instrumental Especializado', short: 'Instrum.' },
-            { id: 'anestesia', label: 'Asistencia en Anestesia', short: 'Anestes.' },
-            { id: 'funciones', label: 'Roles de Enfermería', short: 'Roles' },
-            { id: 'comunicacion', label: 'Comunicación y Registros', short: 'Comun.' }
-        ];
-
-        // --- INICIALIZACIÓN ---
-        window.initApp = async () => {
-            updateConnectionStatus('checking');
-
-            // 1. Intentar cargar configuración de entorno (Preview) o Manual (GitHub)
-            let configToUse = FIREBASE_CONFIG;
-            if (!configToUse && typeof __firebase_config !== 'undefined' && __firebase_config) {
-                // Estamos en el entorno de vista previa de IA
-                configToUse = JSON.parse(__firebase_config);
-            }
-
-            if (configToUse) {
-                // --- MODO NUBE ---
-                try {
-                    const app = initializeApp(configToUse);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-
-                    // Auth silenciosa
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            isCloudMode = true;
-                            updateConnectionStatus('cloud');
-                            setupCloudListener();
-                        } else {
-                            startLocalMode();
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Error conectando a Firebase, pasando a local:", e);
-                    startLocalMode();
-                }
-            } else {
-                // --- MODO LOCAL ---
-                startLocalMode();
-            }
-        };
-
-        const startLocalMode = () => {
-            isCloudMode = false;
-            updateConnectionStatus('local');
-            loadLocalData();
-        };
-
-        // --- GESTIÓN DE DATOS (Híbrida) ---
-        
-        const setupCloudListener = () => {
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-production-app';
-            // Si estamos en entorno IA usamos path complejo, si es GitHub usamos path simple 'students'
-            const path = (typeof __app_id !== 'undefined') 
-                ? collection(db, 'artifacts', appId, 'public', 'data', 'students')
-                : collection(db, 'students');
-
-            onSnapshot(path, (snapshot) => {
-                students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderDashboard();
-            }, (error) => {
-                console.error("Error leyendo nube:", error);
-                startLocalMode();
-            });
-        };
-
-        const loadLocalData = () => {
-            const data = localStorage.getItem('or_track_data');
-            if (data) {
-                students = JSON.parse(data);
-            } else {
-                // Datos de prueba iniciales
-                students = [{
-                    id: 'local-1', name: 'Alumno Ejemplo', dni: '00000000X', course: 'Rotación Prueba',
-                    evaluations: [], createdAt: new Date().toISOString()
-                }];
-                saveLocalData();
-            }
-            renderDashboard();
-        };
-
-        const saveLocalData = () => {
-            localStorage.setItem('or_track_data', JSON.stringify(students));
-            renderDashboard();
-        };
-
-        // --- ACCIONES CRUD ---
-
-        window.saveStudent = async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-save-student');
-            btn.innerText = "Guardando...";
-            btn.disabled = true;
-
-            const newStu = {
-                id: isCloudMode ? undefined : 'local-' + Date.now(),
-                name: document.getElementById('stuName').value,
-                dni: document.getElementById('stuDni').value,
-                course: document.getElementById('stuCourse').value,
-                joinDate: document.getElementById('stuDate').value,
-                evaluations: [],
-                createdAt: new Date().toISOString()
-            };
-
-            try {
-                if (isCloudMode) {
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-production-app';
-                    const path = (typeof __app_id !== 'undefined') 
-                        ? collection(db, 'artifacts', appId, 'public', 'data', 'students')
-                        : collection(db, 'students');
-                    await addDoc(path, newStu);
-                } else {
-                    students.push(newStu);
-                    saveLocalData();
-                }
-                closeModal('modal-add');
-                e.target.reset();
-                showToast("Alumno registrado");
-            } catch (err) {
-                console.error(err);
-                showToast("Error al guardar");
-            } finally {
-                btn.innerText = "Guardar";
-                btn.disabled = false;
-            }
-        };
-
-        window.saveEvaluation = async (e) => {
-            e.preventDefault();
-            const studentId = document.getElementById('evalStudentId').value;
-            const student = students.find(s => s.id === studentId);
-            
-            // Recoger valores
-            const scores = {};
-            let sum = 0;
-            criteria.forEach(c => {
-                const val = parseInt(document.getElementById(`input-${c.id}`).value);
-                scores[c.id] = val;
-                sum += val;
-            });
-
-            const newEval = {
-                week: document.getElementById('evalWeek').value,
-                date: new Date().toISOString().split('T')[0],
-                evaluator: currentRole === 'docente' ? 'Docente Supervisor' : 'Enf. Quirófano',
-                scores,
-                avg: parseFloat((sum / criteria.length).toFixed(1)),
-                notes: document.getElementById('evalNotes').value
-            };
-
-            const updatedEvals = [...(student.evaluations || []), newEval];
-
-            try {
-                if (isCloudMode) {
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-production-app';
-                    const docRef = (typeof __app_id !== 'undefined') 
-                        ? doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId)
-                        : doc(db, 'students', studentId);
-                    await updateDoc(docRef, { evaluations: updatedEvals });
-                } else {
-                    student.evaluations = updatedEvals;
-                    saveLocalData();
-                }
-                closeModal('modal-eval');
-                showToast("Evaluación guardada");
-            } catch (err) {
-                console.error(err);
-                showToast("Error al guardar evaluación");
-            }
-        };
-
-        window.deleteStudent = async (id) => {
-            if (!confirm("¿Eliminar alumno y sus datos?")) return;
-            
-            if (isCloudMode) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-production-app';
-                const docRef = (typeof __app_id !== 'undefined') 
-                    ? doc(db, 'artifacts', appId, 'public', 'data', 'students', id)
-                    : doc(db, 'students', id);
-                await deleteDoc(docRef);
-            } else {
-                students = students.filter(s => s.id !== id);
-                saveLocalData();
-            }
-            showToast("Alumno eliminado");
-        };
-
-        // --- RENDERIZADO VISUAL ---
-
-        const renderDashboard = () => {
-            // Actualizar KPIs
-            const total = students.length;
-            const evalsCount = students.reduce((acc, s) => acc + (s.evaluations?.length || 0), 0);
-            let globalSum = 0, countAvg = 0;
-            students.forEach(s => {
-                if(s.evaluations?.length) {
-                    const avg = s.evaluations.reduce((a,b)=>a+b.avg,0)/s.evaluations.length;
-                    globalSum += avg; countAvg++;
-                }
-            });
-            const globalAvg = countAvg ? (globalSum/countAvg).toFixed(1) : '0.0';
-
-            document.getElementById('stat-total').innerText = total;
-            document.getElementById('stat-evals').innerText = evalsCount;
-            document.getElementById('stat-avg').innerText = globalAvg;
-
-            // Renderizar Tabla
-            const tbody = document.getElementById('students-table-body');
-            tbody.innerHTML = '';
-
-            if (students.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 bg-white italic">No hay datos. Añade un alumno.</td></tr>`;
-                return;
-            }
-
-            students.forEach(s => {
-                const evals = s.evaluations || [];
-                const lastEval = evals.length > 0 ? evals[evals.length-1] : null;
-                const avg = evals.length > 0 ? (evals.reduce((a,b)=>a+b.avg,0)/evals.length).toFixed(1) : '-';
-                
-                // Color badges
-                const avgClass = avg >= 7 ? 'text-emerald-700 bg-emerald-100 border-emerald-200' : (avg >= 5 ? 'text-amber-700 bg-amber-100 border-amber-200' : 'text-slate-500 bg-slate-100 border-slate-200');
-                
-                const tr = document.createElement('tr');
-                tr.className = "bg-white border-b border-slate-100 table-row-hover transition-colors last:border-0";
-                tr.innerHTML = `
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full bg-slate-100 text-teal-700 font-bold flex items-center justify-center border border-slate-200 shadow-sm">
-                                ${s.name.charAt(0)}
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-800">${s.name}</div>
-                                <div class="text-xs text-slate-400 font-mono">${s.dni}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-xs font-bold text-slate-500">${s.course}</td>
-                    <td class="px-6 py-4 text-sm font-medium text-slate-600">${lastEval ? 'Semana '+lastEval.week : '<span class="text-slate-300">Sin datos</span>'}</td>
-                    <td class="px-6 py-4">
-                        <span class="px-3 py-1 rounded-full text-xs font-bold border ${avgClass}">${avg}</span>
-                    </td>
-                    <td class="px-6 py-4 text-xs text-slate-500">
-                        ${lastEval ? new Date(lastEval.date).toLocaleDateString() : '-'}
-                    </td>
-                    <td class="px-6 py-4">
-                        <div class="flex justify-end gap-2">
-                            <button onclick="openEvaluation('${s.id}')" title="Evaluar" class="p-2 hover:bg-teal-50 text-slate-400 hover:text-teal-600 rounded-lg transition-colors"><i data-lucide="clipboard-check" class="w-4 h-4"></i></button>
-                            <button onclick="viewDetails('${s.id}')" title="Ver Gráficas" class="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><i data-lucide="bar-chart-2" class="w-4 h-4"></i></button>
-                            ${currentRole === 'docente' ? `<button onclick="deleteStudent('${s.id}')" title="Borrar" class="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-            lucide.createIcons();
-        };
-
-        const updateConnectionStatus = (status) => {
-            const el = document.getElementById('connection-badge');
-            const txt = document.getElementById('connection-text');
-            const ico = document.getElementById('connection-icon');
-
-            if (status === 'cloud') {
-                el.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm";
-                txt.innerText = "Nube Activada";
-                ico.setAttribute('data-lucide', 'cloud');
-            } else if (status === 'local') {
-                el.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shadow-sm";
-                txt.innerText = "Modo Local";
-                ico.setAttribute('data-lucide', 'hard-drive');
-            } else {
-                el.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-400 border border-slate-200 animate-pulse";
-                txt.innerText = "Conectando...";
-                ico.setAttribute('data-lucide', 'loader-2');
-            }
-            lucide.createIcons();
-        };
-
-        // --- HELPERS UI ---
-
-        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-        
-        window.openEvaluation = (id) => {
-            const s = students.find(x => x.id === id);
-            document.getElementById('evalStudentId').value = id;
-            document.getElementById('evalStudentName').innerText = s.name;
-            const container = document.getElementById('criteriaList');
-            container.innerHTML = '';
-            criteria.forEach(c => {
-                const div = document.createElement('div');
-                div.className = "mb-4";
-                div.innerHTML = `
-                    <div class="flex justify-between mb-1">
-                        <label class="text-xs font-bold text-slate-500 uppercase">${c.label}</label>
-                        <span id="val-${c.id}" class="text-xs font-bold text-white bg-teal-600 px-2 py-0.5 rounded-md">5</span>
-                    </div>
-                    <input type="range" id="input-${c.id}" min="1" max="10" value="5" 
-                           class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-                           oninput="document.getElementById('val-${c.id}').innerText = this.value">
-                `;
-                container.appendChild(div);
-            });
-            openModal('modal-eval');
-        };
-
-        window.viewDetails = (id) => {
-            const s = students.find(x => x.id === id);
-            document.getElementById('detailName').innerText = s.name;
-            document.getElementById('detailInfo').innerText = `${s.course} • ${s.dni}`;
-            
-            const histDiv = document.getElementById('detailHistory');
-            histDiv.innerHTML = '';
-            const evals = [...(s.evaluations || [])].reverse();
-            
-            if (evals.length === 0) histDiv.innerHTML = '<div class="text-center text-slate-400 py-10 italic">No hay evaluaciones registradas.</div>';
-            
-            evals.forEach(ev => {
-                const item = document.createElement('div');
-                item.className = "bg-slate-50 p-4 rounded-xl border border-slate-100 mb-3 hover:shadow-sm transition-shadow";
-                item.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-teal-700 uppercase bg-teal-50 px-2 py-0.5 rounded">Semana ${ev.week}</span>
-                        <span class="text-xs text-slate-400">${ev.date}</span>
-                    </div>
-                    <div class="flex justify-between items-end">
-                        <div class="text-sm text-slate-600 italic leading-snug w-3/4">"${ev.notes || '...'}"</div>
-                        <div class="text-xl font-black text-slate-800">${ev.avg}</div>
-                    </div>
-                `;
-                histDiv.appendChild(item);
-            });
-
-            // Gráfico
-            const ctx = document.getElementById('evolutionChart').getContext('2d');
-            if (activeChart) activeChart.destroy();
-            activeChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: evals.reverse().map(e => `S${e.week}`),
-                    datasets: [{
-                        label: 'Evolución',
-                        data: evals.map(e => e.avg),
-                        borderColor: '#0d9488',
-                        backgroundColor: 'rgba(13, 148, 136, 0.1)',
-                        fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#fff', pointBorderColor: '#0d9488', pointBorderWidth: 2
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { legend: { display: false } }, 
-                    scales: { 
-                        y: { min: 0, max: 10, grid: { borderDash: [4, 4], color: '#e2e8f0' } },
-                        x: { grid: { display: false } }
-                    } 
-                }
-            });
-            openModal('modal-details');
-        };
-
-        window.toggleRole = () => {
-            currentRole = document.getElementById('roleSelect').value;
-            const btn = document.getElementById('btnAddMain');
-            if(currentRole === 'enfermeria') btn.classList.add('hidden');
-            else btn.classList.remove('hidden');
-            renderDashboard();
-        };
-
-        window.showToast = (msg) => {
-            const t = document.getElementById('toast');
-            document.getElementById('toastMsg').innerText = msg;
-            t.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            window.initApp();
-            lucide.createIcons();
-        });
-
-    </script>
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #0d9488; cursor: pointer; margin-top: -6px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px; cursor: pointer; background: #ccfbf1; border-radius: 2px;
+    }
+  </style>
 </head>
-<body>
+<body class="text-slate-700 h-screen flex flex-col overflow-hidden">
 
-    <!-- Navegación -->
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="bg-teal-600 text-white p-1.5 rounded-lg shadow-sm">
-                    <i data-lucide="activity" class="w-5 h-5"></i>
-                </div>
-                <h1 class="font-bold text-lg tracking-tight text-slate-800">OR-Track <span class="text-slate-400 font-normal">| Panel</span></h1>
-            </div>
-            
-            <div class="flex items-center gap-4">
-                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-400 border border-slate-200">
-                    <i id="connection-icon" data-lucide="loader-2" class="w-3 h-3"></i>
-                    <span id="connection-text" class="text-xs font-bold">Cargando...</span>
-                </div>
-                <div class="hidden md:flex items-center gap-2 bg-slate-50 rounded-lg p-1 border border-slate-200">
-                    <select id="roleSelect" onchange="toggleRole()" class="bg-transparent text-xs font-bold text-slate-600 px-2 py-1 outline-none cursor-pointer">
-                        <option value="docente">Docente</option>
-                        <option value="enfermeria">Enfermería</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Contenido Principal -->
-    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
-        
-        <!-- Tarjetas KPIs -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Alumnos Activos</p>
-                    <p id="stat-total" class="text-3xl font-black text-slate-800 mt-1">0</p>
-                </div>
-                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="users" class="w-6 h-6"></i></div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Evaluaciones</p>
-                    <p id="stat-evals" class="text-3xl font-black text-slate-800 mt-1">0</p>
-                </div>
-                <div class="p-3 bg-teal-50 text-teal-600 rounded-xl"><i data-lucide="file-check" class="w-6 h-6"></i></div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Promedio Grupo</p>
-                    <p id="stat-avg" class="text-3xl font-black text-slate-800 mt-1">0.0</p>
-                </div>
-                <div class="p-3 bg-purple-50 text-purple-600 rounded-xl"><i data-lucide="trending-up" class="w-6 h-6"></i></div>
-            </div>
-        </div>
-
-        <!-- Tabla de Datos -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h2 class="font-bold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wide">
-                    <i data-lucide="list" class="w-4 h-4 text-slate-400"></i> Listado de Alumnos
-                </h2>
-                <button id="btnAddMain" onclick="openModal('modal-add')" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-teal-600/20">
-                    <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Alumno
-                </button>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                            <th class="px-6 py-4">Alumno/a</th>
-                            <th class="px-6 py-4">Curso</th>
-                            <th class="px-6 py-4">Fase Actual</th>
-                            <th class="px-6 py-4">Rendimiento</th>
-                            <th class="px-6 py-4">Última Eval.</th>
-                            <th class="px-6 py-4 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="students-table-body">
-                        <!-- Filas JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- MODAL: AÑADIR ALUMNO -->
-    <div id="modal-add" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl border border-slate-100">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-black text-slate-800">Registrar Alumno</h3>
-                <button onclick="closeModal('modal-add')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-6 h-6"></i></button>
-            </div>
-            <form onsubmit="saveStudent(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nombre Completo</label>
-                    <input type="text" id="stuName" required class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">DNI</label>
-                        <input type="text" id="stuDni" required class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Fecha Inicio</label>
-                        <input type="date" id="stuDate" required class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Rotación / Curso</label>
-                    <input type="text" id="stuCourse" placeholder="Ej: 4º Grado - Quirófano" required class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium">
-                </div>
-                <div class="pt-4">
-                    <button type="submit" id="btn-save-student" class="w-full bg-teal-600 text-white font-bold py-3.5 rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-600/20 transition-all">Guardar Ficha</button>
-                </div>
-            </form>
-        </div>
+<!-- HEADER -->
+<nav class="bg-white border-b border-slate-200 shadow-sm z-10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16">
+      <div class="flex items-center cursor-pointer" onclick="app.renderDashboard()">
+        <i class="fa-solid fa-heart-pulse text-medical-600 text-2xl mr-3"></i>
+        <span class="font-bold text-xl text-slate-800 tracking-tight">Suri<span class="text-medical-600">Quirófano</span></span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span class="text-sm text-slate-500 hidden sm:block">Modo actual:</span>
+        <select id="roleSelector" onchange="app.setRole(this.value)" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-medical-500 focus:border-medical-500 block p-2">
+          <option value="Docente">🎓 Docente</option>
+          <option value="Enfermería">🏥 Enfermería</option>
+        </select>
+      </div>
     </div>
+  </div>
+</nav>
 
-    <!-- MODAL: EVALUAR -->
-    <div id="modal-eval" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-hidden flex flex-col">
-            <div class="flex justify-between items-start mb-6 flex-shrink-0">
-                <div>
-                    <h3 class="text-xl font-black text-slate-800">Nueva Evaluación</h3>
-                    <p id="evalStudentName" class="text-teal-600 font-bold text-sm mt-1"></p>
-                </div>
-                <select id="evalWeek" class="text-xs bg-slate-100 border-none rounded-lg px-3 py-1.5 font-bold text-slate-600 outline-none cursor-pointer">
-                    <option value="1">Semana 1</option>
-                    <option value="2">Semana 2</option>
-                    <option value="3">Semana 3</option>
-                    <option value="4">Semana 4</option>
-                    <option value="5">Semana 5</option>
-                    <option value="6">Semana 6</option>
-                    <option value="7">Semana 7</option>
-                    <option value="8">Semana 8</option>
-                </select>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
-                <form id="form-eval" onsubmit="saveEvaluation(event)">
-                    <input type="hidden" id="evalStudentId">
-                    <div id="criteriaList" class="space-y-1 mb-6"></div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Observaciones / Feedback</label>
-                        <textarea id="evalNotes" rows="3" placeholder="Comentarios sobre el desempeño..." class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-medium resize-none"></textarea>
-                    </div>
-                </form>
-            </div>
-            
-            <div class="pt-6 mt-4 border-t border-slate-100 flex gap-3 flex-shrink-0">
-                <button type="button" onclick="closeModal('modal-eval')" class="flex-1 py-3.5 text-slate-500 font-bold hover:text-slate-700">Cancelar</button>
-                <button type="submit" form="form-eval" class="flex-1 bg-teal-600 text-white font-bold py-3.5 rounded-xl hover:bg-teal-700 shadow-lg shadow-teal-600/20">Guardar Evaluación</button>
-            </div>
-        </div>
+<!-- CONTENEDOR PRINCIPAL -->
+<main class="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-8" id="mainContent"></main>
+
+<!-- MODAL -->
+<div id="modalOverlay" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden transform transition-all scale-100">
+    <div class="bg-medical-600 px-6 py-4 flex justify-between items-center">
+      <h3 class="text-white font-semibold text-lg" id="modalTitle">Título Modal</h3>
+      <button onclick="app.closeModal()" class="text-medical-100 hover:text-white transition">
+        <i class="fa-solid fa-times text-xl"></i>
+      </button>
     </div>
+    <div class="p-6 max-h-[80vh] overflow-y-auto" id="modalContent"></div>
+  </div>
+</div>
 
-    <!-- MODAL: DETALLES -->
-    <div id="modal-details" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl w-full max-w-4xl p-8 shadow-2xl h-[85vh] flex flex-col">
-            <div class="flex justify-between items-start mb-6 flex-shrink-0">
-                <div>
-                    <h3 id="detailName" class="text-3xl font-black text-slate-800"></h3>
-                    <p id="detailInfo" class="text-slate-500 font-medium mt-1"></p>
-                </div>
-                <button onclick="closeModal('modal-details')" class="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-                <div class="lg:col-span-2 flex flex-col h-full bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-                    <h4 class="font-bold text-slate-400 text-xs uppercase mb-4 flex items-center gap-2"><i data-lucide="line-chart" class="w-4 h-4"></i> Curva de Aprendizaje</h4>
-                    <div class="flex-1 relative w-full h-full min-h-0">
-                        <canvas id="evolutionChart"></canvas>
-                    </div>
-                </div>
-                <div class="flex flex-col h-full overflow-hidden bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                    <h4 class="font-bold text-slate-400 text-xs uppercase mb-4 flex items-center gap-2"><i data-lucide="history" class="w-4 h-4"></i> Historial</h4>
-                    <div id="detailHistory" class="flex-1 overflow-y-auto custom-scrollbar pr-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- FIREBASE -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-8 right-8 bg-slate-800 text-white px-6 py-4 rounded-2xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-[100] flex items-center gap-3">
-        <i data-lucide="check-circle" class="text-teal-400 w-5 h-5"></i>
-        <span id="toastMsg" class="font-bold text-sm">Acción completada</span>
-    </div>
+  const firebaseConfig = {
+    apiKey: "AIzaSyC68e1yqOg47g7gEgIJTcl4Bi2FUCm4lgM",
+    authDomain: "eval-93e9e.firebaseapp.com",
+    projectId: "eval-93e9e",
+    storageBucket: "eval-93e9e.firebasestorage.app",
+    messagingSenderId: "467067668263",
+    appId: "1:467067668263:web:f9f87624b2b6f3612f8b02"
+  };
 
-</body>
-</html>
+  const appFirebase = initializeApp(firebaseConfig);
+  const db = getFirestore(appFirebase);
+
+  export async function saveEvaluationFirebase(studentId, evaluation) {
+    await addDoc(collection(db, "evaluaciones"), {
+      studentId,
+      ...evaluation
+    });
+  }
+
+  export async function loadEvaluationsFirebase() {
+    const snapshot = await getDocs(collection(db, "evaluaciones"));
+    return snapshot.docs.map(doc => doc.data());
+  }
+</script>
+
+<!-- JAVASCRIPT LOGIC -->
+<script>
+const app = (() => {
+  const state = {
+    students: [],
+    currentUserRole: 'Docente',
+    currentStudentId: null,
+    chartInstance: null
+  };
+
+  const criteriaList = [
+    { key: 'asepsia', label: 'Asepsia y Antisepsia' },
+    { key: 'area', label: 'Conocimiento Área Quirúrgica' },
+    { key: 'instrumentacion', label: 'Instrumentación Quirúrgica' },
+    { key: 'seguridad', label: 'Seguridad del Paciente' },
+    { key: 'equipo', label: 'Trabajo en Equipo y Comunicación' },
+    { key: 'etica', label: 'Responsabilidad y Ética' },
+    { key: 'autonomia', label: 'Autonomía Progresiva' }
+  ];
+
+  function init() {
+    loadData();
+    renderDashboard();
+    if (state.students.length === 0) loadMockData();
+  }
+
+  function loadData() {
+    const stored = localStorage.getItem('suri_students');
+    if (stored) state.students = JSON.parse(stored);
+  }
+
+  function saveData() {
+    localStorage.setItem('suri_students', JSON.stringify(state.students));
+  }
+
+  function loadMockData() {
+    const today = new Date();
+    const pastDate = new Date();
+    pastDate.setDate(today.getDate() - 15);
+
+    const mockStudents = [
+      {
+        id: 'ALU-001',
+        name: 'Ana García López',
+        dni: '12345678A',
+        course: 'Prácticas II',
+        startDate: '2023-09-01',
+        evaluations: [
+          { id: 1, date: pastDate.toISOString().split('T')[0], evaluator: 'Docente', evaluatorName: 'Dr. Martínez', scores: { asepsia: 5, area: 6, instrumentacion: 4, seguridad: 7, equipo: 8, etica: 9, autonomia: 4 }, average: 6.1, observations: 'Inicio titubeante, buena actitud.' },
+          { id: 2, date: today.toISOString().split('T')[0], evaluator: 'Enfermería', evaluatorName: 'Enf. Ruiz', scores: { asepsia: 8, area: 8, instrumentacion: 7, seguridad: 8, equipo: 9, etica: 9, auton
