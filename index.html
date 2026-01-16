@@ -3,573 +3,745 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Jardín de Hábitos - Estilo Ghibli</title>
-    <style>
-        /* --- ESTILOS INSPIRADOS EN GHIBLI --- */
-        :root {
-            --bg-color: #fcf8f0;
-            --primary-green: #7d9d7d;
-            --secondary-green: #a5c0a5;
-            --accent-brown: #8d7b68;
-            --text-color: #4a4a4a;
-            --card-bg: #ffffff;
-            --shadow: 0 4px 15px rgba(0,0,0,0.05);
-            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            --percentage: 0%;
-        }
+    <title>Seguimiento Enfermería Quirófano</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-main);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-            background-image: radial-gradient(#dce8dc 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
 
-        .container {
-            width: 95%;
-            max-width: 900px;
-            padding: 20px;
-        }
-
-        header {
-            text-align: center;
-            padding: 20px 0 40px;
-        }
-
-        header h1 {
-            font-weight: 300;
-            color: var(--primary-green);
-            margin: 0;
-            font-size: 2.5rem;
-            letter-spacing: 1px;
-        }
-
-        header p {
-            font-style: italic;
-            color: var(--accent-brown);
-            margin-top: 5px;
-        }
-
-        /* --- LAYOUT --- */
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 25px;
-        }
-
-        @media (min-width: 992px) {
-            .grid {
-                grid-template-columns: 1fr 1.5fr;
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6', // Teal 500
+                            600: '#0d9488', // Teal 600
+                            700: '#0f766e', // Teal 700
+                            900: '#134e4a',
+                        }
+                    }
+                }
             }
         }
+    </script>
 
-        .card {
-            background: var(--card-bg);
-            border-radius: 24px;
-            padding: 25px;
-            box-shadow: var(--shadow);
-            border: 1px solid #f0f0f0;
-            margin-bottom: 20px;
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc; /* Slate 50 */
         }
-
-        h2 {
-            font-weight: 400;
-            color: var(--primary-green);
-            margin-top: 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.25rem;
+        /* Transiciones suaves para la UI */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
         }
-
-        /* --- HÁBITOS --- */
-        .habit-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        .habit-item {
-            display: flex;
-            align-items: center;
-            padding: 14px;
-            margin-bottom: 10px;
-            background: #fff;
-            border: 1px solid #f0f0f0;
-            transition: all 0.3s ease;
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #0d9488;
             cursor: pointer;
-            border-radius: 14px;
-        }
-
-        .habit-item:hover {
-            transform: translateY(-2px);
-            border-color: var(--secondary-green);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-        }
-
-        .habit-checkbox {
-            width: 24px;
-            height: 24px;
             border-radius: 50%;
-            border: 2px solid var(--secondary-green);
-            margin-right: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: 0.3s;
-            flex-shrink: 0;
-        }
-
-        .habit-item.done .habit-checkbox {
-            background: var(--primary-green);
-            border-color: var(--primary-green);
-        }
-
-        .habit-item.done .habit-checkbox::after {
-            content: '✓';
-            color: white;
-            font-size: 14px;
-        }
-
-        .habit-item.done span {
-            opacity: 0.5;
-            text-decoration: line-through;
-        }
-
-        /* --- MEDIA MENSUAL --- */
-        .average-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            padding: 10px 0;
-        }
-
-        .stats-circle {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            /* El gradiente usa la variable que actualizamos por JS */
-            background: conic-gradient(var(--primary-green) var(--percentage), #f0f0f0 0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-bottom: 15px;
-            transition: background 0.5s ease;
-        }
-
-        .stats-circle::after {
-            content: "";
-            position: absolute;
-            width: 115px;
-            height: 115px;
-            background: white;
-            border-radius: 50%;
-        }
-
-        .stats-value {
-            position: relative;
-            z-index: 2;
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--primary-green);
-        }
-
-        .stats-desc {
-            font-size: 0.9rem;
-            color: var(--accent-brown);
-            margin: 0;
-            line-height: 1.4;
-        }
-
-        /* --- TAREAS --- */
-        .task-input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 25px;
-        }
-
-        input[type="text"], input[type="date"] {
-            padding: 14px;
-            border: 1px solid #e0e0e0;
-            border-radius: 14px;
-            font-size: 14px;
-            outline: none;
-            background: #fafafa;
-            transition: 0.2s;
-        }
-
-        input:focus {
-            border-color: var(--primary-green);
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(125, 157, 125, 0.1);
-        }
-
-        .btn-add {
-            background: var(--primary-green);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 14px;
-            cursor: pointer;
-            transition: 0.3s;
-            font-weight: bold;
-            font-size: 15px;
-        }
-
-        .btn-add:hover {
-            filter: brightness(1.05);
-            transform: translateY(-1px);
-        }
-
-        .task-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .task-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px;
-            background: #fff;
-            margin-bottom: 12px;
-            border-radius: 16px;
-            border: 1px solid #f0f0f0;
-            border-left: 5px solid var(--secondary-green);
-        }
-
-        .task-item.completed {
-            border-left-color: #ddd;
-            opacity: 0.6;
-        }
-
-        .task-item.completed span {
-            text-decoration: line-through;
-        }
-
-        .task-date {
-            font-size: 11px;
-            color: var(--accent-brown);
-            margin-top: 4px;
-        }
-
-        .delete-btn {
-            background: none;
-            border: none;
-            color: #ddd;
-            cursor: pointer;
-            font-size: 1.4rem;
-            line-height: 1;
-            transition: 0.2s;
-        }
-        .delete-btn:hover { color: #d9534f; }
-
-        /* --- HISTORIAL / HEATMAP --- */
-        .progress-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
-            gap: 5px;
-            margin-top: 15px;
-        }
-
-        .day-box {
-            aspect-ratio: 1;
-            background: #f0f0f0;
-            border-radius: 6px;
-            font-size: 9px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: transparent;
-            cursor: default;
-        }
-
-        .day-box:hover { color: #999; border: 1px solid #ddd; }
-        .day-box.level-1 { background: #e8f0e8; }
-        .day-box.level-2 { background: #d1e0d1; }
-        .day-box.level-3 { background: #b9d1b9; }
-        .day-box.level-4 { background: #a2c2a2; }
-        .day-box.level-5 { background: #8bb38b; }
-        .day-box.level-6 { background: #74a474; }
-
-        .legend {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            font-size: 0.8rem;
-            color: var(--accent-brown);
-            margin-top: 20px;
         }
     </style>
 </head>
-<body>
+<body class="text-slate-700 h-screen flex flex-col overflow-hidden">
 
-    <div class="container">
-        <header>
-            <h1>Mi Jardín de Hábitos</h1>
-            <p>Cultivando bienestar y asertividad</p>
-        </header>
+    <!-- 1. BARRA DE NAVEGACIÓN -->
+    <nav class="bg-white border-b border-slate-200 shadow-sm z-10 flex-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="app.showDashboard()">
+                    <div class="bg-medical-100 p-2 rounded-full text-medical-700">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg text-slate-800 tracking-tight">QuirófanoTrack</h1>
+                        <p class="text-xs text-slate-500">Seguimiento de Alumnos</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                        <button onclick="app.setRole('docente')" id="btn-role-docente" class="px-3 py-1 rounded-md text-sm font-medium transition-colors">Docente</button>
+                        <button onclick="app.setRole('enfermeria')" id="btn-role-enfermeria" class="px-3 py-1 rounded-md text-sm font-medium transition-colors">Enfermería</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-        <div class="grid">
-            <section>
-                <!-- HÁBITOS -->
-                <div class="card">
-                    <h2>🌱 Hábitos de Hoy</h2>
-                    <ul class="habit-list" id="habitList"></ul>
+    <!-- 2. CONTENIDO PRINCIPAL (Scrollable) -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative">
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- VISTA: DASHBOARD (Lista de alumnos) -->
+            <div id="view-dashboard" class="fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Panel de Alumnos</h2>
+                        <p class="text-slate-500 mt-1">Gestión y seguimiento del progreso clínico.</p>
+                    </div>
+                    <button onclick="app.toggleModal('modal-add-student')" id="btn-add-student" class="hidden bg-medical-600 hover:bg-medical-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2 transition-transform active:scale-95">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i>
+                        Nuevo Alumno
+                    </button>
                 </div>
 
-                <!-- MEDIA MENSUAL -->
-                <div class="card">
-                    <h2>📈 Media del Mes</h2>
-                    <div class="average-container">
-                        <div class="stats-circle" id="statsCircle">
-                            <span class="stats-value" id="statsValue">0%</span>
+                <!-- Tarjetas de estadísticas rápidas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div class="bg-blue-50 text-blue-600 p-3 rounded-full"><i data-lucide="users" class="w-5 h-5"></i></div>
+                        <div><p class="text-sm text-slate-500">Total Alumnos</p><h3 class="text-xl font-bold" id="stat-total-students">0</h3></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div class="bg-green-50 text-green-600 p-3 rounded-full"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
+                        <div><p class="text-sm text-slate-500">Evaluaciones Totales</p><h3 class="text-xl font-bold" id="stat-total-evals">0</h3></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div class="bg-amber-50 text-amber-600 p-3 rounded-full"><i data-lucide="star" class="w-5 h-5"></i></div>
+                        <div><p class="text-sm text-slate-500">Promedio General</p><h3 class="text-xl font-bold" id="stat-global-avg">-</h3></div>
+                    </div>
+                </div>
+
+                <!-- Grid de Alumnos -->
+                <div id="students-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Las tarjetas de alumnos se inyectan aquí con JS -->
+                    <div class="col-span-full text-center py-12 text-slate-400">
+                        <i data-lucide="loader-2" class="w-8 h-8 mx-auto animate-spin mb-2"></i>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA: DETALLE ALUMNO -->
+            <div id="view-student-detail" class="hidden fade-in">
+                <!-- Cabecera del perfil -->
+                <div class="mb-6">
+                    <button onclick="app.showDashboard()" class="text-slate-500 hover:text-medical-600 flex items-center gap-1 mb-2 text-sm font-medium transition-colors">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Volver al panel
+                    </button>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-medical-50 text-medical-700 w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-medical-100">
+                                <span id="detail-initials">AB</span>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-800" id="detail-name">Nombre Alumno</h2>
+                                <div class="flex gap-4 text-sm text-slate-500 mt-1">
+                                    <span class="flex items-center gap-1"><i data-lucide="id-card" class="w-3 h-3"></i> <span id="detail-dni">DNI</span></span>
+                                    <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3"></i> Curso: <span id="detail-course">2024</span></span>
+                                </div>
+                            </div>
                         </div>
-                        <p class="stats-desc" id="statsDesc">Comienza el día marcando un hábito.</p>
+                        <div class="text-right">
+                            <div class="text-sm text-slate-400 uppercase tracking-wider font-semibold">Promedio Actual</div>
+                            <div class="text-4xl font-bold text-medical-600" id="detail-average">0.0</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- HISTORIAL -->
-                <div class="card">
-                    <h2>📅 Vista Mensual</h2>
-                    <div id="monthLabel" style="font-size: 0.9rem; font-weight: bold; margin-bottom: 12px; color: var(--accent-brown); text-transform: capitalize;"></div>
-                    <div class="progress-grid" id="progressGrid"></div>
-                    <div class="legend">
-                        <span>Poco</span>
-                        <div style="width:12px; height:12px; background:#e8f0e8; border-radius:3px;"></div>
-                        <div style="width:12px; height:12px; background:#74a474; border-radius:3px;"></div>
-                        <span>Mucho</span>
-                    </div>
-                </div>
-            </section>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Columna Izquierda: Gráfico y Botón Evaluar -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Gráfico de Evolución -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i data-lucide="line-chart" class="w-5 h-5 text-medical-500"></i> Evolución de Desempeño
+                            </h3>
+                            <div class="relative h-64 w-full">
+                                <canvas id="evolutionChart"></canvas>
+                            </div>
+                        </div>
 
-            <section>
-                <!-- TAREAS -->
-                <div class="card">
-                    <h2>📝 Tareas Pendientes</h2>
-                    <div class="task-input-group">
-                        <input type="text" id="taskInput" placeholder="¿Qué tienes planeado hoy?">
-                        <input type="date" id="taskDate">
-                        <button class="btn-add" onclick="addTask()">Añadir al Jardín</button>
+                        <!-- Historial de Evaluaciones -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                <h3 class="font-bold text-slate-700">Historial de Evaluaciones</h3>
+                                <button onclick="app.openEvaluationModal()" class="bg-medical-600 hover:bg-medical-700 text-white text-xs px-3 py-2 rounded shadow transition-transform active:scale-95 flex items-center gap-1">
+                                    <i data-lucide="plus" class="w-3 h-3"></i> Nueva Evaluación
+                                </button>
+                            </div>
+                            <div id="evaluations-list" class="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                                <!-- Lista de evaluaciones inyectada por JS -->
+                                <p class="p-6 text-center text-slate-400 text-sm">No hay evaluaciones registradas aún.</p>
+                            </div>
+                        </div>
                     </div>
-                    <ul class="task-list" id="taskList"></ul>
+
+                    <!-- Columna Derecha: Resumen de Criterios (Promedios) -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <h3 class="text-lg font-bold text-slate-800 mb-4">Fortalezas y Áreas de Mejora</h3>
+                            <div id="criteria-summary" class="space-y-4">
+                                <!-- Barras de progreso por criterio -->
+                                <p class="text-sm text-slate-400">Registra evaluaciones para ver el desglose por competencias.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </section>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODALES -->
+
+    <!-- Modal: Agregar Alumno -->
+    <div id="modal-add-student" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="bg-medical-600 p-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-lg">Registrar Nuevo Alumno</h3>
+                <button onclick="app.toggleModal('modal-add-student')" class="hover:bg-medical-700 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-add-student" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition-all">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">DNI / ID</label>
+                        <input type="text" name="dni" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Curso / Año</label>
+                        <input type="text" name="course" placeholder="Ej: 2025" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 outline-none">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg shadow mt-2 transition-colors">
+                    Guardar Alumno
+                </button>
+            </form>
         </div>
     </div>
 
-    <script>
-        /* --- CONFIGURACIÓN --- */
-        const HABIT_NAMES = [
-            "Beber más agua",
-            "Ejercicio",
-            "Leer 20 páginas",
-            "Asertividad",
-            "Autocuidado",
-            "Comer dos piezas de fruta"
-        ];
+    <!-- Modal: Nueva Evaluación -->
+    <div id="modal-add-evaluation" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all">
+            <div class="bg-medical-600 p-4 flex justify-between items-center text-white flex-none">
+                <div>
+                    <h3 class="font-bold text-lg">Nueva Evaluación Clínica</h3>
+                    <p class="text-medical-100 text-xs">Califica del 1 al 10</p>
+                </div>
+                <button onclick="app.toggleModal('modal-add-evaluation')" class="hover:bg-medical-700 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <form id="form-evaluation" class="p-6 overflow-y-auto flex-1 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Evaluador</label>
+                        <input type="text" name="evaluator" id="input-evaluator" readonly class="w-full bg-slate-100 border border-slate-200 rounded px-3 py-2 text-slate-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Fecha</label>
+                        <input type="date" name="date" required class="w-full border border-slate-300 rounded px-3 py-2 focus:ring-medical-500 outline-none text-sm">
+                    </div>
+                </div>
 
-        let state = {
-            habits: {}, 
-            tasks: [],   
-            lastVisit: ""
+                <div class="space-y-4 border-t border-slate-100 pt-4" id="criteria-container">
+                    <!-- Criterios generados dinámicamente -->
+                </div>
+
+                <div class="border-t border-slate-100 pt-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Observaciones / Feedback</label>
+                    <textarea name="notes" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 outline-none resize-none" placeholder="Comentarios cualitativos..."></textarea>
+                </div>
+            </form>
+            
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 rounded-b-xl flex-none">
+                <button onclick="app.toggleModal('modal-add-evaluation')" class="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
+                <button onclick="app.submitEvaluation()" class="px-6 py-2 bg-medical-600 hover:bg-medical-700 text-white font-bold rounded-lg shadow transition-colors">Guardar Evaluación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de lógica principal -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuración Firebase ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appInstance = initializeApp(firebaseConfig);
+        const auth = getAuth(appInstance);
+        const db = getFirestore(appInstance);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'quir-track-default';
+
+        // --- Estado de la Aplicación ---
+        const state = {
+            user: null,
+            role: 'docente', // 'docente' o 'enfermeria'
+            students: [],
+            evaluations: [], // Todas las evaluaciones cargadas
+            currentStudentId: null,
+            chartInstance: null,
+            criteria: [
+                "Asepsia y antisepsia",
+                "Conocimiento del área quirúrgica",
+                "Instrumentación quirúrgica",
+                "Seguridad del paciente",
+                "Trabajo en equipo y comunicación",
+                "Responsabilidad y ética profesional",
+                "Autonomía progresiva"
+            ]
         };
 
-        /* --- UTILIDADES DE FECHA LOCAL --- */
-        // Obtenemos YYYY-MM-DD basado en la hora local del dispositivo
-        function getLocalDateStr(date = new Date()) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
-
-        /* --- INICIALIZACIÓN --- */
-        window.onload = () => {
-            loadData();
-            handleDayTransition();
-            refreshUI();
-        };
-
-        function refreshUI() {
-            renderHabits();
-            renderTasks();
-            renderProgressGrid();
-            calculateMonthlyAverage();
-        }
-
-        /* --- PERSISTENCIA --- */
-        function saveData() {
-            localStorage.setItem('ghibli_tracker_v3', JSON.stringify(state));
-        }
-
-        function loadData() {
-            const saved = localStorage.getItem('ghibli_tracker_v3');
-            if (saved) state = JSON.parse(saved);
-        }
-
-        function handleDayTransition() {
-            const today = getLocalDateStr();
-            if (state.lastVisit !== today) {
-                state.lastVisit = today;
-                if (!state.habits[today]) state.habits[today] = [];
-                saveData();
+        // --- Referencias UI ---
+        const els = {
+            grid: document.getElementById('students-grid'),
+            dashboard: document.getElementById('view-dashboard'),
+            detail: document.getElementById('view-student-detail'),
+            evalList: document.getElementById('evaluations-list'),
+            criteriaSummary: document.getElementById('criteria-summary'),
+            addStudentBtn: document.getElementById('btn-add-student'),
+            roleBtns: {
+                docente: document.getElementById('btn-role-docente'),
+                enfermeria: document.getElementById('btn-role-enfermeria')
             }
-        }
+        };
 
-        /* --- LÓGICA DE HÁBITOS --- */
-        function renderHabits() {
-            const list = document.getElementById('habitList');
-            const today = getLocalDateStr();
-            const doneToday = state.habits[today] || [];
+        // --- Inicialización ---
+        const init = async () => {
+            // Autenticación
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
 
-            list.innerHTML = "";
-            HABIT_NAMES.forEach(name => {
-                const isDone = doneToday.includes(name);
-                const li = document.createElement('li');
-                li.className = `habit-item ${isDone ? 'done' : ''}`;
-                li.innerHTML = `
-                    <div class="habit-checkbox"></div>
-                    <span style="flex:1">${name}</span>
-                `;
-                li.onclick = () => toggleHabit(name);
-                list.appendChild(li);
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    state.user = user;
+                    console.log("Usuario autenticado:", user.uid);
+                    setupRealtimeListeners();
+                }
             });
-        }
 
-        function toggleHabit(name) {
-            const today = getLocalDateStr();
-            if (!state.habits[today]) state.habits[today] = [];
+            // Generar formulario de criterios
+            renderCriteriaForm();
+            updateRoleUI();
             
-            const idx = state.habits[today].indexOf(name);
-            if (idx > -1) state.habits[today].splice(idx, 1);
-            else state.habits[today].push(name);
+            // Inicializar Lucide Icons
+            lucide.createIcons();
+        };
+
+        // --- Lógica de Firebase ---
+        
+        function setupRealtimeListeners() {
+            // 1. Escuchar Alumnos
+            // Usamos path público para colaboración
+            const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
             
-            saveData();
-            refreshUI();
-        }
+            onSnapshot(studentsRef, (snapshot) => {
+                state.students = [];
+                snapshot.forEach(doc => {
+                    state.students.push({ id: doc.id, ...doc.data() });
+                });
+                renderDashboard();
+                if(state.currentStudentId) renderStudentDetail(state.currentStudentId);
+            }, (error) => console.error("Error fetching students:", error));
 
-        /* --- ESTADÍSTICAS Y MEDIA --- */
-        function calculateMonthlyAverage() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const currentDay = now.getDate();
-
-            let completedInMonth = 0;
-            let possibleInMonth = 0;
-
-            // Recorremos desde el día 1 hasta hoy para calcular la media acumulada
-            for (let d = 1; d <= currentDay; d++) {
-                const tempDate = new Date(year, month, d);
-                const key = getLocalDateStr(tempDate);
+            // 2. Escuchar Evaluaciones
+            // Nota: En una app real usaríamos 'where', pero para prototipo y siguiendo reglas estrictas
+            // de 'no complex queries', traemos la colección y filtramos en memoria.
+            const evalsRef = collection(db, 'artifacts', appId, 'public', 'data', 'evaluations');
+            
+            onSnapshot(evalsRef, (snapshot) => {
+                state.evaluations = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Convertir Timestamp a Date JS si es necesario
+                    const date = data.date && data.date.toDate ? data.date.toDate() : new Date(data.date);
+                    state.evaluations.push({ id: doc.id, ...data, dateObj: date });
+                });
                 
-                possibleInMonth += HABIT_NAMES.length;
-                if (state.habits[key]) {
-                    completedInMonth += state.habits[key].length;
+                // Ordenar por fecha descendente en memoria
+                state.evaluations.sort((a, b) => b.dateObj - a.dateObj);
+                
+                renderDashboard(); // Para actualizar promedios globales
+                if (state.currentStudentId) renderStudentDetail(state.currentStudentId);
+            }, (error) => console.error("Error fetching evaluations:", error));
+        }
+
+        // --- Funciones UI Globales ---
+
+        window.app = {
+            setRole: (role) => {
+                state.role = role;
+                updateRoleUI();
+                renderDashboard(); // Refrescar para mostrar/ocultar botones
+            },
+            
+            toggleModal: (modalId) => {
+                const modal = document.getElementById(modalId);
+                modal.classList.toggle('hidden');
+                if(!modal.classList.contains('hidden') && modalId === 'modal-add-evaluation') {
+                    // Pre-llenar fecha y evaluador
+                    document.querySelector('input[name="date"]').valueAsDate = new Date();
+                    document.getElementById('input-evaluator').value = state.role === 'docente' ? 'Docente (Tutor)' : 'Enfermería (Staff)';
+                }
+            },
+
+            showDashboard: () => {
+                state.currentStudentId = null;
+                els.detail.classList.add('hidden');
+                els.dashboard.classList.remove('hidden');
+                renderDashboard();
+            },
+            
+            openStudentDetail: (id) => {
+                state.currentStudentId = id;
+                els.dashboard.classList.add('hidden');
+                els.detail.classList.remove('hidden');
+                renderStudentDetail(id);
+            },
+
+            openEvaluationModal: () => {
+                window.app.toggleModal('modal-add-evaluation');
+            },
+
+            // --- Enviar Formularios ---
+
+            submitEvaluation: async () => {
+                if (!state.user || !state.currentStudentId) return;
+
+                const form = document.getElementById('form-evaluation');
+                const formData = new FormData(form);
+                
+                // Calcular scores y promedio
+                const scores = {};
+                let sum = 0;
+                let count = 0;
+
+                state.criteria.forEach((crit, index) => {
+                    const val = parseInt(document.getElementById(`crit-${index}`).value);
+                    scores[crit] = val;
+                    sum += val;
+                    count++;
+                });
+
+                const average = count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
+                
+                const newEval = {
+                    studentId: state.currentStudentId,
+                    evaluator: formData.get('evaluator'),
+                    evaluatorRole: state.role,
+                    date: Timestamp.fromDate(new Date(formData.get('date'))),
+                    notes: formData.get('notes'),
+                    scores: scores,
+                    average: average
+                };
+
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'evaluations'), newEval);
+                    window.app.toggleModal('modal-add-evaluation');
+                    form.reset();
+                    // Reset sliders visualmente
+                    document.querySelectorAll('input[type="range"]').forEach(i => i.dispatchEvent(new Event('input')));
+                } catch (e) {
+                    console.error("Error saving evaluation:", e);
+                    alert("Error al guardar. Intente nuevamente.");
                 }
             }
+        };
 
-            const percentage = possibleInMonth > 0 
-                ? Math.round((completedInMonth / possibleInMonth) * 100) 
-                : 0;
+        // Event Listener para Formulario Alumno
+        document.getElementById('form-add-student').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!state.user) return;
 
-            // Actualizar interfaz
-            const statsCircle = document.getElementById('statsCircle');
-            const statsValue = document.getElementById('statsValue');
-            const statsDesc = document.getElementById('statsDesc');
+            const formData = new FormData(e.target);
+            const newStudent = {
+                name: formData.get('name'),
+                dni: formData.get('dni'),
+                course: formData.get('course'),
+                createdAt: Timestamp.now()
+            };
 
-            // Actualizamos la variable CSS para el gradiente
-            statsCircle.style.setProperty('--percentage', `${percentage}%`);
-            statsValue.innerText = `${percentage}%`;
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), newStudent);
+                window.app.toggleModal('modal-add-student');
+                e.target.reset();
+            } catch (err) {
+                console.error("Error adding student:", err);
+            }
+        });
 
-            if (percentage >= 90) statsDesc.innerText = "¡Increíble! Tu jardín es un paraíso.";
-            else if (percentage >= 70) statsDesc.innerText = "¡Qué buen ritmo llevas! Sigue así.";
-            else if (percentage >= 40) statsDesc.innerText = "Vas por buen camino, cada hábito suma.";
-            else statsDesc.innerText = "Un día a la vez. Tu jardín te espera.";
-        }
+        // --- Renderizado ---
 
-        function renderProgressGrid() {
-            const grid = document.getElementById('progressGrid');
-            const label = document.getElementById('monthLabel');
-            grid.innerHTML = "";
-
-            const now = new Date();
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const monthName = now.toLocaleString('es-ES', { month: 'long' });
+        function updateRoleUI() {
+            // Estilos de botones de rol
+            const activeClass = "bg-medical-600 text-white shadow";
+            const inactiveClass = "text-slate-600 hover:bg-slate-200";
             
-            label.innerText = `${monthName} ${now.getFullYear()}`;
+            els.roleBtns.docente.className = `px-3 py-1 rounded-md text-sm font-medium transition-colors ${state.role === 'docente' ? activeClass : inactiveClass}`;
+            els.roleBtns.enfermeria.className = `px-3 py-1 rounded-md text-sm font-medium transition-colors ${state.role === 'enfermeria' ? activeClass : inactiveClass}`;
 
-            for (let i = 1; i <= daysInMonth; i++) {
-                const d = new Date(now.getFullYear(), now.getMonth(), i);
-                const key = getLocalDateStr(d);
-                const count = state.habits[key] ? state.habits[key].length : 0;
-                
-                const box = document.createElement('div');
-                box.className = `day-box level-${count}`;
-                box.innerText = i;
-                box.title = `${count} hábitos completados el día ${i}`;
-                grid.appendChild(box);
+            // Visibilidad de botón Crear Alumno (Solo docentes)
+            if (state.role === 'docente') {
+                els.addStudentBtn.classList.remove('hidden');
+            } else {
+                els.addStudentBtn.classList.add('hidden');
             }
         }
 
-        /* --- LÓGICA DE TAREAS --- */
-        function addTask() {
-            const input = document.getElementById('taskInput');
-            const dateInput = document.getElementById('taskDate');
-            if (!input.value.trim()) return;
-
-            state.tasks.push({
-                id: Date.now(),
-                text: input.value,
-                date: dateInput.value,
-                completed: false
-            });
-
-            input.value = "";
-            dateInput.value = "";
-            saveData();
-            renderTasks();
-        }
-
-        function toggleTask(id) {
-            const task = state.tasks.find(t => t.id === id);
-            if (task) task.completed = !task.completed;
-            saveData();
-            renderTasks();
-        }
-
-        function deleteTask(id) {
-            state.tasks = state.tasks.filter(t => t.id !== id);
-            saveData();
-            renderTasks();
-        }
-
-        function renderTasks() {
-            const list = document.getElementById('taskList');
-            list.innerHTML = "";
-            state.tasks.forEach(task => {
-                const li = document.createElement('li');
-                li.className = `task-item ${task.completed ? 'completed' : ''}`;
-                li.innerHTML = `
-                    <div style="flex:1; cursor:pointer" onclick="toggleTask(${task.id})">
-                        <span style="display:block">${task.text}</span>
-                        ${task.date ? `<div class="task-date">📅 ${task.date}</div>` : ''}
+        function renderCriteriaForm() {
+            const container = document.getElementById('criteria-container');
+            container.innerHTML = state.criteria.map((c, i) => `
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-700 w-2/3 truncate" title="${c}">${c}</label>
+                        <span class="text-sm font-bold text-medical-600 w-8 text-right" id="val-${i}">5</span>
                     </div>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})">&times;</button>
+                    <input type="range" min="1" max="10" value="5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-medical-600 slider-thumb" 
+                        id="crit-${i}" 
+                        oninput="document.getElementById('val-${i}').innerText = this.value">
+                    <div class="flex justify-between text-xs text-slate-400 mt-1">
+                        <span>Bajo</span>
+                        <span>Excelente</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStudentStats(studentId) {
+            const studentEvals = state.evaluations.filter(e => e.studentId === studentId);
+            if (studentEvals.length === 0) return { avg: 0, count: 0 };
+            
+            const total = studentEvals.reduce((sum, e) => sum + (e.average || 0), 0);
+            return {
+                avg: (total / studentEvals.length).toFixed(1),
+                count: studentEvals.length
+            };
+        }
+
+        function renderDashboard() {
+            els.grid.innerHTML = '';
+            
+            // Calcular estadísticas globales
+            let totalAvgSum = 0;
+            let studentsWithEvals = 0;
+
+            if (state.students.length === 0) {
+                els.grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">No hay alumnos registrados.</div>`;
+            }
+
+            state.students.forEach(student => {
+                const stats = getStudentStats(student.id);
+                if (stats.count > 0) {
+                    totalAvgSum += parseFloat(stats.avg);
+                    studentsWithEvals++;
+                }
+
+                const initials = student.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+                
+                const card = document.createElement('div');
+                card.className = "bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow cursor-pointer relative group overflow-hidden";
+                card.onclick = () => window.app.openStudentDetail(student.id);
+                
+                // Barra lateral de color según promedio
+                const colorClass = stats.avg >= 8 ? 'bg-green-500' : (stats.avg >= 5 ? 'bg-yellow-400' : 'bg-red-400');
+                
+                card.innerHTML = `
+                    <div class="absolute left-0 top-0 bottom-0 w-1 ${stats.count > 0 ? colorClass : 'bg-slate-200'}"></div>
+                    <div class="flex justify-between items-start mb-4 pl-2">
+                        <div class="bg-slate-100 w-12 h-12 rounded-full flex items-center justify-center text-slate-600 font-bold text-lg">
+                            ${initials}
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-slate-400 block">Promedio</span>
+                            <span class="text-2xl font-bold ${stats.count > 0 ? 'text-slate-800' : 'text-slate-300'}">${stats.count > 0 ? stats.avg : '-'}</span>
+                        </div>
+                    </div>
+                    <div class="pl-2">
+                        <h3 class="font-bold text-lg text-slate-800 truncate">${student.name}</h3>
+                        <p class="text-sm text-slate-500 flex items-center gap-1 mt-1">
+                            <i data-lucide="graduation-cap" class="w-3 h-3"></i> ${student.course || 'Sin curso'}
+                        </p>
+                        <div class="mt-4 flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-50 p-2 rounded">
+                            <i data-lucide="file-text" class="w-3 h-3"></i> ${stats.count} evaluaciones
+                        </div>
+                    </div>
                 `;
-                list.appendChild(li);
+                els.grid.appendChild(card);
+            });
+
+            // Actualizar stats del dashboard
+            document.getElementById('stat-total-students').innerText = state.students.length;
+            document.getElementById('stat-total-evals').innerText = state.evaluations.length;
+            document.getElementById('stat-global-avg').innerText = studentsWithEvals > 0 ? (totalAvgSum / studentsWithEvals).toFixed(1) : '-';
+
+            lucide.createIcons();
+        }
+
+        function renderStudentDetail(studentId) {
+            const student = state.students.find(s => s.id === studentId);
+            if (!student) return;
+
+            // Datos básicos
+            document.getElementById('detail-name').innerText = student.name;
+            document.getElementById('detail-dni').innerText = student.dni || 'N/A';
+            document.getElementById('detail-course').innerText = student.course || 'N/A';
+            document.getElementById('detail-initials').innerText = student.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+
+            // Filtrar evaluaciones
+            const evals = state.evaluations.filter(e => e.studentId === studentId); // Ya están ordenadas por fecha en state.evaluations
+            const stats = getStudentStats(studentId);
+            
+            document.getElementById('detail-average').innerText = stats.count > 0 ? stats.avg : '-';
+
+            // 1. Renderizar Lista
+            els.evalList.innerHTML = evals.length ? '' : '<p class="p-6 text-center text-slate-400 text-sm">No hay evaluaciones registradas aún.</p>';
+            
+            // Calculo de promedios por criterio para este alumno
+            const criteriaSums = {};
+            const criteriaCounts = {};
+            state.criteria.forEach(c => { criteriaSums[c] = 0; criteriaCounts[c] = 0; });
+
+            evals.forEach(ev => {
+                // Render Item
+                const item = document.createElement('div');
+                item.className = "p-4 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row justify-between sm:items-center gap-2";
+                
+                const dateStr = ev.dateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+                
+                // Color badge para el rol
+                const roleBadge = ev.evaluatorRole === 'docente' 
+                    ? '<span class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded ml-2">Docente</span>' 
+                    : '<span class="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded ml-2">Enfermería</span>';
+
+                item.innerHTML = `
+                    <div>
+                        <div class="flex items-center">
+                            <span class="font-medium text-slate-700 text-sm">${ev.evaluator || 'Anónimo'}</span>
+                            ${roleBadge}
+                        </div>
+                        <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                            <i data-lucide="calendar" class="w-3 h-3"></i> ${dateStr}
+                        </div>
+                        ${ev.notes ? `<p class="text-xs text-slate-500 mt-2 italic border-l-2 border-slate-200 pl-2">"${ev.notes}"</p>` : ''}
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <span class="text-xs text-slate-400 uppercase">Nota</span>
+                            <div class="font-bold text-xl text-medical-600">${ev.average}</div>
+                        </div>
+                    </div>
+                `;
+                els.evalList.appendChild(item);
+
+                // Acumular para desglose de criterios
+                if(ev.scores) {
+                    for (const [key, val] of Object.entries(ev.scores)) {
+                        if(criteriaSums[key] !== undefined) {
+                            criteriaSums[key] += val;
+                            criteriaCounts[key]++;
+                        }
+                    }
+                }
+            });
+
+            // 2. Renderizar Resumen de Criterios (Barras)
+            els.criteriaSummary.innerHTML = '';
+            if (evals.length > 0) {
+                state.criteria.forEach(c => {
+                    const avg = criteriaCounts[c] > 0 ? (criteriaSums[c] / criteriaCounts[c]).toFixed(1) : 0;
+                    const pct = (avg / 10) * 100;
+                    const color = avg >= 8 ? 'bg-green-500' : (avg >= 5 ? 'bg-yellow-400' : 'bg-red-400');
+                    
+                    els.criteriaSummary.innerHTML += `
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-600 truncate w-3/4" title="${c}">${c}</span>
+                                <span class="font-bold text-slate-800">${avg}</span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                <div class="${color} h-1.5 rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                els.criteriaSummary.innerHTML = '<p class="text-sm text-slate-400">Registra evaluaciones para ver el desglose por competencias.</p>';
+            }
+
+            // 3. Renderizar Gráfico
+            renderChart(evals);
+            lucide.createIcons();
+        }
+
+        function renderChart(evals) {
+            const ctx = document.getElementById('evolutionChart').getContext('2d');
+            
+            if (state.chartInstance) {
+                state.chartInstance.destroy();
+            }
+
+            // Invertimos para que el gráfico vaya de izquierda (antiguo) a derecha (nuevo)
+            // evals viene ordenado descendente (nuevo -> antiguo) para la lista
+            const chartData = [...evals].reverse();
+
+            const labels = chartData.map(e => e.dateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }));
+            const dataPoints = chartData.map(e => e.average);
+
+            state.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Promedio Evaluación',
+                        data: dataPoints,
+                        borderColor: '#0d9488', // Medical 600
+                        backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#0f766e',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 10,
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
             });
         }
+
+        // Arrancar
+        init();
+
     </script>
 </body>
 </html>
