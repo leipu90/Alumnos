@@ -1,41 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
-<<script type="module">
-  // Importa Firebase desde CDN
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
-
-  // Tu configuración de Firebase
-  const firebaseConfig = {
-    apiKey: "TU_API_KEY",
-    authDomain: "TU_PROYECTO.firebaseapp.com",
-    projectId: "TU_PROYECTO",
-    storageBucket: "TU_PROYECTO.appspot.com",
-    messagingSenderId: "TU_ID",
-    appId: "TU_APP_ID"
-  };
-
-  // Inicializa Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // Función para agregar evaluaciones
-  async function agregarEvaluacion(nombre, fecha, nota) {
-    await addDoc(collection(db, "evaluaciones"), { nombre, fecha, nota });
-    console.log("Evaluación agregada!");
-  }
-
-  // Función para ver evaluaciones
-  async function verEvaluaciones() {
-    const snapshot = await getDocs(collection(db, "evaluaciones"));
-    snapshot.forEach(doc => console.log(doc.id, doc.data()));
-  }
-
-  // Ejemplo de uso
-  agregarEvaluacion("Juan Pérez", "2026-01-16", 9);
-  verEvaluaciones();
-</script>
->
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OR-Track: Panel de Control</title>
